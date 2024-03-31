@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realtime location tracker</title>
+
+    <!-- leaflet css  -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <!-- leaflet js  -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([31.6341600, -7.9999400], 6);
+
+        var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        });
+        osm.addTo(map);
+
+        var markers = {}; // Pour stocker les marqueurs des utilisateurs
+
+        // Initialiser une connexion WebSocket au serveur
+        var socket = new WebSocket('ws://localhost:3000'); // Changez l'URL en fonction de votre serveur WebSocket
+
+        // Événement déclenché lorsque la connexion WebSocket est ouverte
+        socket.onopen = function(event) {
+            console.log('WebSocket connected');
+        };
+
+        // Événement déclenché lorsque la connexion WebSocket reçoit un message
+        socket.onmessage = function(event) {
+            var data = JSON.parse(event.data);
+            var userId = data.userId;
+            var lat = data.lat;
+            var long = data.long;
+            var accuracy = data.accuracy;
+
+            // Supprimer le marqueur de l'utilisateur s'il existe déjà
+            if (markers.hasOwnProperty(userId)) {
+                map.removeLayer(markers[userId]);
+            }
+
+            // Ajouter un nouveau marqueur pour l'utilisateur
+            var userMarker = L.marker([lat, long]).addTo(map);
+            markers[userId] = userMarker;
+
+            console.log("User " + userId + " coordinate is: Lat: " + lat + " Long: " + long + " Accuracy: " + accuracy)
+        };
+
+        if (!navigator.geolocation) {
+            console.log("Your browser doesn't support geolocation feature!")
+        } else {
+            // Obtenir périodiquement la position de l'utilisateur
+            setInterval(() => {
+                navigator.geolocation.getCurrentPosition(sendPositionToServer)
+            }, 5000);
+        }
+
+        function sendPositionToServer(position) {
+            var lat = position.coords.latitude;
+            var long = position.coords.longitude;
+            var accuracy = position.coords.accuracy;
+
+            // Envoyer la position de l'utilisateur au serveur WebSocket
+            socket.send(JSON.stringify({
+                userId: Math.random().toString(36).substr(2, 9),
+                lat: lat,
+                long: long,
+                accuracy: accuracy
+            }));
+
+             // Supprimer le marqueur de l'utilisateur s'il existe déjà
+             if (markers.hasOwnProperty(position.timestamp)) {
+                map.removeLayer(markers[position.timestamp]);
+            }
+
+            // Ajouter un nouveau marqueur pour l'utilisateur
+            var userMarker = L.marker([lat, long]).addTo(map);
+            markers[position.timestamp] = userMarker;
+
+            console.log("Your coordinate is: Lat: " + lat + " Long: " + long + " Accuracy: " + accuracy)
+        
+        }
+    </script>
+</body>
+
+</html>
