@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realtime location tracker</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <!-- Leaflet routing CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        #map {
+            width: 100%;
+            height: 70vh; /* Reducing height to fit map and speed display */
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+<!--for email-->
+<script type="text/javascript"
+        src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js">
+</script>
+<script type="text/javascript">
+   (function(){
+      emailjs.init({
+        publicKey: "R7YtYmfgtjvdNxz9c",
+      });
+   })();
+</script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    
+    <!-- Leaflet routing JS -->
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
+    <script>
+        var map = L.map('map').setView([31.6341600, -7.9999400], 6);
+        var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        });
+        osm.addTo(map);
+        
+        // Tableau de données statiques sur les voitures
+        var carData = [
+            { id: 1, marque:"mercedes", lat: 31.6341600, long: -7.9999400, vitesse: 0, distance: 0, carburant: 0.1 },
+            { id: 2, marque:"audi", lat: 31.6000000, long: -7.9999400, vitesse: 0, distance: 0, carburant: 0.05 },
+            { id: 3, marque:"dacia", lat: 31.6900000, long: -7.8000000, vitesse: 0, distance: 0, carburant: 90 },
+            { id: 4, marque:"volvo", lat: 31.7341600, long: -7.8999400, vitesse: 0, distance: 0, carburant: 50 },
+            { id: 5, marque:"ford", lat: 31.6999999, long: -7.7799400, vitesse: 0, distance: 0, carburant: 44 },
+            { id: 6, marque:"skoda", lat: 31.6555000, long: -7.7000000, vitesse: 0, distance: 0, carburant: 100 }
+        ];
+
+        // Parcourir les données des voitures et ajouter des marqueurs sur la carte
+        var carMarkers = [];
+        var carDistanceFields = []; // Champ de texte pour afficher la distance parcourue de chaque voiture
+        carData.forEach(function(car) {
+            var carIcon = L.icon({
+                iconUrl: 'img/' + car.marque + '.png',
+                iconSize: [70, 70]
+            });
+
+            var marker = L.marker([car.lat, car.long], { icon: carIcon }).addTo(map);
+            var popupContent = "<b>Car marque:</b> " + car.marque + "<br><b>Speed:</b> " + car.vitesse + " km/h<br><b>Distance:</b> " + car.distance + " km<br><b>Carburant:</b> " + car.carburant + " %";
+            marker.bindPopup(popupContent);
+            carMarkers.push(marker);
+
+            // Ajouter le champ de texte pour la distance parcourue de chaque voiture
+            var distanceField = document.createElement('input');
+            distanceField.type = 'text';
+            distanceField.value = car.distance + ' km';
+            document.body.appendChild(distanceField);
+            carDistanceFields.push(distanceField);
+        });
+
+        // Fonction pour calculer la consommation de carburant en fonction de la vitesse et de la distance
+        function calculateFuelConsumption(speed, distance) {
+            // Formule de consommation de carburant hypothétique
+            // Vous pouvez ajuster cette formule en fonction de la spécification du véhicule
+            return (speed * distance) / 100;
+        }
+
+        // Fonction pour envoyer une alerte par e-mail lorsque le carburant atteint 0
+function sendEmailAlert(car) {
+    var params={
+     message : "Alerte: La voiture " + car.marque + " est à court de carburant!",
+     email : "hakmaoui01@gmail.com",
+     subject : "Alerte Carburant",};
+
+    const serviceID = "service_whlyzoo";
+    const templateID = "template_sgg5sed";
+    
+    emailjs.send(serviceID,templateID,params)
+    .then(res=>{
+        
+        console.log(res);
+        alert("Your message sent successfully!!")
+
+    })
+    .catch(err=>console.log(err));
+}
+
+
+        // Ajouter la fonction de clic pour créer l'itinéraire
+        map.on('click', function (e) {
+            carData.forEach(function(car, index) {
+                car.vitesse = Math.floor(Math.random() * (100 - 40 + 1)) + 40;
+                if (carMarkers[index].getPopup()) {
+                    carMarkers[index].unbindPopup();
+                }
+                var popupContent = "<b>Car marque:</b> " + car.marque + "<br><b>Speed:</b> " + car.vitesse + " km/h<br><b>Distance:</b> " + car.distance + " km<br><b>Carburant:</b> " + car.carburant + " %";
+                carMarkers[index].bindPopup(popupContent);
+
+                var waypoints = [
+                    L.latLng(car.lat, car.long),
+                    L.latLng(e.latlng.lat, e.latlng.lng)
+                ];
+
+                // Créer un itinéraire
+                var routingControl = L.Routing.control({
+                    waypoints: waypoints,
+                    routeWhileDragging: true
+                }).addTo(map);
+
+                // Mettre à jour la position de la voiture le long de l'itinéraire
+                routingControl.on('routeselected', function(e) {
+                    var route = e.route;
+                    var i = 0;
+                    var interval = setInterval(function() {
+                        var coordinates = route.coordinates[i++];
+                        if (i >= route.coordinates.length) {
+                            clearInterval(interval);
+                        }
+                        carMarkers[index].setLatLng([coordinates.lat, coordinates.lng]);
+
+                        // Calculer la distance parcourue
+                        if (i > 1) {
+                            var distance = route.coordinates[i - 1].distanceTo(route.coordinates[i - 2]) / 1000; // Convertir en kilomètres
+                            car.distance += distance;
+                            carDistanceFields[index].value = car.distance.toFixed(2) + ' km';
+
+                            // Calculer la consommation de carburant et mettre à jour la quantité de carburant restante
+                            var fuelConsumption = calculateFuelConsumption(car.vitesse, distance);
+                            car.carburant -= fuelConsumption;
+
+                            // Mettre à jour le popup avec la nouvelle quantité de carburant
+                            var updatedPopupContent = "<b>Car marque:</b> " + car.marque + "<br><b>Speed:</b> " + car.vitesse + " km/h<br><b>Distance:</b> " + car.distance + " km<br><b>Carburant:</b> " + car.carburant.toFixed(2) + " %";
+                            carMarkers[index].setPopupContent(updatedPopupContent);
+
+                            // Vérifier si le carburant est épuisé
+                            if (car.carburant <= 0) {
+                                // Envoyer une alerte par e-mail
+                                sendEmailAlert(car);
+                                // Arrêter le suivi de l'itinéraire
+                                clearInterval(interval);
+                            }
+                        }
+                    }, 2000);
+                });
+            });
+        });
+
+        //search
+        L.Control.geocoder().addTo(map);
+    </script>
+</body>
+</html>
